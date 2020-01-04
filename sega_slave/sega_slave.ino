@@ -5,10 +5,11 @@ byte pin3 = 4;
 byte pin4 = 2;
 byte pin6 = 3;
 byte pin9 = 6;
-int lastValue = -1;
-int incomingByte = 0;
 
-char validChars[11] = "ABCUDLRS\r\n";
+int incomingByte = 0;
+int counter = 0;
+word pinsPressed;
+word lastBtnsPressed;
 
 typedef struct
 {
@@ -30,6 +31,8 @@ output outputMap[] = {
 };
 
 const byte BUTTONS = 8;
+byte lastHighStatus = 0;
+byte lastLowStatus = 0;
 
 
 void setup() {
@@ -42,39 +45,44 @@ void setup() {
   pinMode(pin4, OUTPUT);
   pinMode(pin6, OUTPUT);
   pinMode(pin9, OUTPUT);
+  attachInterrupt(digitalPinToInterrupt(pin7), writeControllerStatus, CHANGE);
   Serial.println("Done with setup");
-
 }
 
-void loop() {
-  int counter = 0;
+void writeControllerStatus(){
+  Serial.println("Pin interrupt");
   int selectPin = digitalRead(pin7);
-  word pinsPressed;
-  if(lastValue != selectPin){
-      if(counter % 2 == 0){
-          pinsPressed = buttonsPressed();
-      }
-      counter++;
+  bool alreadyCleared = false;
 
-      
-      
-      if(selectPin == HIGH){
-        digitalWrite(pin1, HIGH);
-        digitalWrite(pin2, HIGH);    
-        digitalWrite(pin3, HIGH);// Indicates controller connected
-        digitalWrite(pin4, HIGH);// Indicates controller connected
-        digitalWrite(pin6, !(bool)(outputMap[4].idx & pinsPressed));// A
-        digitalWrite(pin9, HIGH);// Start BTN
-      }
-      else{    
-        digitalWrite(pin1, HIGH);
-        digitalWrite(pin2, HIGH);
-        digitalWrite(pin3, HIGH);
-        digitalWrite(pin4, (bool)(outputMap[3].idx & pinsPressed));// R
-        digitalWrite(pin6, HIGH);//(bool)(outputMap[5].idx & pinsPressed));// B
-        digitalWrite(pin9, HIGH);//(bool)(outputMap[7].idx & pinsPressed));// C
-      }    
+
+  if(selectPin == HIGH){
+    digitalWrite(pin1, HIGH);
+    digitalWrite(pin2, HIGH);    
+    digitalWrite(pin3, LOW);// Indicates controller connected
+    digitalWrite(pin4, LOW);// Indicates controller connected
+    digitalWrite(pin6, LOW);//(bool)(outputMap[4].idx & pinsPressed));// A
+    digitalWrite(pin9, HIGH);// Start BTN
   }
+  else{    
+    digitalWrite(pin1, HIGH);
+    digitalWrite(pin2, HIGH);
+    digitalWrite(pin3, HIGH);
+    digitalWrite(pin4, HIGH);//(bool)(outputMap[3].idx & pinsPressed));// R
+    digitalWrite(pin6, HIGH);//(bool)(outputMap[5].idx & pinsPressed));// B
+    digitalWrite(pin9, HIGH);//(bool)(outputMap[7].idx & pinsPressed));// C
+  }    
+}
+
+
+
+void loop() {}
+
+void serialEvent(){
+  pinsPressed = buttonsPressed();
+  /*
+  Serial.println("Was r pressed?");
+  Serial.println((outputMap[4].idx & pinsPressed));
+  */
 }
 
 
@@ -86,18 +94,17 @@ word buttonsPressed(){
     bool valid = false;
     for(int i = 0; i < BUTTONS+1; i++){
         if(theChar == outputMap[i].key){
-            valid = true;
             pinsPressed = pinsPressed ^ outputMap[i].idx;
+            valid = true;
             break;
         }
     }
 
     if(valid){
-      /*
         Serial.println("Received");
         Serial.println(theChar);
+        /*
         Serial.println("What is the code?");
-        
         Serial.println( ? "true" : "false");*/
     }
     else{
@@ -105,5 +112,4 @@ word buttonsPressed(){
     }
   }
   return pinsPressed;
-
 }
