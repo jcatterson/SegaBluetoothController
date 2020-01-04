@@ -1,14 +1,14 @@
-byte pin7 = 7;
+byte pin7 = 2;//7;
 byte pin1 = 9;
 byte pin2 = 1;
 byte pin3 = 4;
-byte pin4 = 2;
+byte pin4 = 7;//2;
 byte pin6 = 3;
 byte pin9 = 6;
 
 int incomingByte = 0;
 int counter = 0;
-word pinsPressed;
+word pinsPressed = 0xFFFF;
 word lastBtnsPressed;
 
 typedef struct
@@ -20,24 +20,23 @@ typedef struct
 
 
 output outputMap[] = {
-    { pin1, 'U', 0x1},
-    { pin2, 'D', 0x2},
-    { pin3,  'L', 0x4},
-    { pin4, 'R', 0x8},
-    { pin6, 'A', 0x10},
-    { pin6, 'B', 0x20},
-    { pin9, 'S', 0x40},
-    { pin9, 'C', 0x80}
+    { pin1, 'U', 0x100},
+    { pin2, 'D', 0x200},
+    { pin3, 'L', 0x400},
+    { pin4, 'R', 0x800},
+    { pin6, 'B', 0x10},
+    { pin9, 'C', 0x2000},
+    { pin6, 'A', 0x100},
+    { pin9, 'S', 0x200},
 };
 
 const byte BUTTONS = 8;
-byte lastHighStatus = 0;
-byte lastLowStatus = 0;
 
 
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
+
   pinMode(pin7, INPUT);
   pinMode(pin9, OUTPUT);
   pinMode(pin2, OUTPUT);
@@ -45,32 +44,53 @@ void setup() {
   pinMode(pin4, OUTPUT);
   pinMode(pin6, OUTPUT);
   pinMode(pin9, OUTPUT);
-  attachInterrupt(digitalPinToInterrupt(pin7), writeControllerStatus, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(pin7), writeController, CHANGE);
+  initController(0xEF);
   Serial.println("Done with setup");
 }
 
-void writeControllerStatus(){
-  Serial.println("Pin interrupt");
+byte cycle = 0;
+void writeController(){
   int selectPin = digitalRead(pin7);
-  bool alreadyCleared = false;
+  
+  if(pinsPressed != 0xFFFF){
+    cycle++;
 
+    if(selectPin == HIGH){
+      //Serial.println("What is the bit?");
+      //Serial.println(pinsPressed);
+      for(int i = 0; i < 6; i++){
+        int bitShift = 8 + i;
+        if((pinsPressed >> bitShift) != (lastBtnsPressed >> bitShift) ){
+          Serial.println(outputMap[i].key);
+          bool result = (bool)outputMap[i].idx & pinsPressed;
+          Serial.println(result);
+          digitalWrite(outputMap[i].pin, result);
+        }        
+      }
+      lastBtnsPressed = pinsPressed;
+    }
+    else {
+      digitalWrite(pin9, HIGH);
+    }
 
-  if(selectPin == HIGH){
-    digitalWrite(pin1, HIGH);
-    digitalWrite(pin2, HIGH);    
-    digitalWrite(pin3, LOW);// Indicates controller connected
-    digitalWrite(pin4, LOW);// Indicates controller connected
-    digitalWrite(pin6, LOW);//(bool)(outputMap[4].idx & pinsPressed));// A
-    digitalWrite(pin9, HIGH);// Start BTN
+    
+
+    if(cycle == 60){
+      Serial.println("clear");
+      initController(0xFF);
+      cycle = 0;
+    }
   }
-  else{    
-    digitalWrite(pin1, HIGH);
-    digitalWrite(pin2, HIGH);
-    digitalWrite(pin3, HIGH);
-    digitalWrite(pin4, HIGH);//(bool)(outputMap[3].idx & pinsPressed));// R
-    digitalWrite(pin6, HIGH);//(bool)(outputMap[5].idx & pinsPressed));// B
-    digitalWrite(pin9, HIGH);//(bool)(outputMap[7].idx & pinsPressed));// C
-  }    
+
+}
+
+void initController(word pinCode){
+  lastBtnsPressed = pinCode;
+  for(int i = 0; i < 6; i++){
+    byte pinStatus = (pinCode >> i) & 1;
+    digitalWrite(outputMap[i].pin, pinStatus);
+  }
 }
 
 
@@ -87,7 +107,7 @@ void serialEvent(){
 
 
 word buttonsPressed(){
-  word pinsPressed = 0xFF;
+  word pinsPressed = 0xFFFF;
   while(Serial.available()){
     incomingByte = Serial.read();
     char theChar = (char)incomingByte;
