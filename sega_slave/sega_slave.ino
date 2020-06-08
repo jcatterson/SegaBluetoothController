@@ -1,15 +1,16 @@
-byte pin7 = 2;//7;
+byte pin7 = 2;
 byte pin1 = 9;
-byte pin2 = 1;
-byte pin3 = 4;
-byte pin4 = 7;//2;
-byte pin6 = 3;
+byte pin2 = 5;
+byte pin3 = 4;//L
+byte pin4 = 7;
+byte pin6 = 3;//A
 byte pin9 = 6;
 
 int incomingByte = 0;
 int counter = 0;
-word pinsPressed = 0xFFFF;
+word pinsPressed = 0x0;//FFFF;
 word lastBtnsPressed;
+int numTimesThrough = 0;
 
 typedef struct
 {
@@ -19,24 +20,26 @@ typedef struct
 } output;
 
 
+
 output outputMap[] = {
-    { pin1, 'U', 0x100},
+    { pin1, 'U', 0x100},//0x100
     { pin2, 'D', 0x200},
     { pin3, 'L', 0x400},
     { pin4, 'R', 0x800},
-    { pin6, 'B', 0x10},
+    { pin6, 'B', 0x1000},
     { pin9, 'C', 0x2000},
-    { pin6, 'A', 0x100},
-    { pin9, 'S', 0x200},
+    { pin6, 'A', 0x10},
+    { pin9, 'S', 0x20}
 };
 
 const byte BUTTONS = 8;
 
-
+void loop() {}
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
 
+  pinMode(pin1, OUTPUT);
   pinMode(pin7, INPUT);
   pinMode(pin9, OUTPUT);
   pinMode(pin2, OUTPUT);
@@ -44,91 +47,135 @@ void setup() {
   pinMode(pin4, OUTPUT);
   pinMode(pin6, OUTPUT);
   pinMode(pin9, OUTPUT);
-  attachInterrupt(digitalPinToInterrupt(pin7), writeController, CHANGE);
-  initController(0xEF);
-  Serial.println("Done with setup");
+  attachInterrupt(digitalPinToInterrupt(pin7), readValue, CHANGE);
+  word initState = 0xFFFF;//0x0000;//0xFFDF;
+  //initController(initState);
+  lastBtnsPressed = initState;
+}
+
+void cyclePins(){
+  for(int i = 0; i < 4; i++){
+    writeController(i % 2 == 0);
+  }
+  lastBtnsPressed = 0xFFFF;
+}
+
+void readValue(){
+  int selectPin = digitalRead(pin7);  
+  writeController(selectPin);
 }
 
 byte cycle = 0;
-void writeController(){
-  int selectPin = digitalRead(pin7);
-  
-  if(pinsPressed != 0xFFFF){
-    cycle++;
-
-    if(selectPin == HIGH){
-      //Serial.println("What is the bit?");
-      //Serial.println(pinsPressed);
-      for(int i = 0; i < 6; i++){
-        int bitShift = 8 + i;
-        if((pinsPressed >> bitShift) != (lastBtnsPressed >> bitShift) ){
-          Serial.println(outputMap[i].key);
-          bool result = (bool)outputMap[i].idx & pinsPressed;
-          Serial.println(result);
-          digitalWrite(outputMap[i].pin, result);
-        }        
-      }
-      lastBtnsPressed = pinsPressed;
-    }
-    else {
-      digitalWrite(pin9, HIGH);
-    }
-
-    
-
-    if(cycle == 60){
-      Serial.println("clear");
-      initController(0xFF);
-      cycle = 0;
-    }
+void writeController(int selectPin){
+  if(selectPin == 0){   
+    writeLow();
   }
+  else if(selectPin == 1){
+    writeHigh();
+  }
+}
 
+
+void writeLow(){
+  word lastBtnsPressed = pinsPressed;
+
+  byte bitValue = (0x1 & (lastBtnsPressed >> 8));// U
+
+
+  byte a = ((lastBtnsPressed >> 4) & 0x1) << 3;
+  byte s = ((lastBtnsPressed >> 5) & 0x1) << 6;
+
+  byte l = 0x1 << 4;
+  byte r = 0x1 << 7;
+
+  byte ctrlOn = l | r;
+  
+  PORTD = ( PORTD & 0x7 ) | ~(ctrlOn |  a | s);
+  PORTB = (PORTB ^ 0x2) | (bitValue << 1);
+
+  //Clear Approach
+  //pinsPressed = pinsPressed & 0xFF00;
+
+}
+
+void writeHigh(){ 
+  word lastBtnsPressed = pinsPressed;
+  
+  // Up is not working 2/9/2020
+  byte bitValue = ~(0x1 & (0x1 & (lastBtnsPressed >> 8)));// U
+  
+
+  byte d = ((lastBtnsPressed >> 9)& 0x1) << 5;
+  byte l = ((lastBtnsPressed >> 10)& 0x1) << 4;
+  byte r = ((lastBtnsPressed >> 11)& 0x1) << 7;
+  byte c = ((lastBtnsPressed >> 13) & 0x1) << 6;
+  byte b = ((lastBtnsPressed >> 12) & 0x1) << 3;
+  
+  byte port = ~(d | l | r | b | c);
+  
+  byte toWrite = (PORTD & 0x7) | port;
+  PORTD = toWrite;
+  PORTB = (PORTB ^ 0x2) | (bitValue << 1);
+
+  //Clear Approach
+  //pinsPressed = pinsPressed & 0x00FF;
 }
 
 void initController(word pinCode){
-  lastBtnsPressed = pinCode;
-  for(int i = 0; i < 6; i++){
-    byte pinStatus = (pinCode >> i) & 1;
-    digitalWrite(outputMap[i].pin, pinStatus);
-  }
+  //lastBtnsPressed = ~pinCode;
+  //Serial.println(lastBtnsPressed);
+
+  byte bitValue = 0x0;//(0x1 & (lastBtnsPressed >> 8));// U
+  PORTB = (PORTB ^ 0x2) | (bitValue << 1);
+
+  byte a = ((lastBtnsPressed >> 4) & 0x1) << 3;
+  byte s = ((lastBtnsPressed >> 5) & 0x1) << 6;
+  byte d = ((lastBtnsPressed >> 9)& 0x1) << 5;
+  byte l = ((lastBtnsPressed >> 10)& 0x1) << 4;
+  byte r = ((lastBtnsPressed >> 11)& 0x1) << 7;
+  byte c = ((lastBtnsPressed >> 13) & 0x1) << 6;
+  byte b = ((lastBtnsPressed >> 12) & 0x1) << 3;
+  
+  
+  byte port = ~(a | s | d | l | r | b | c | 0x7);
+  
+  byte toWrite = (PORTD & 0x7) | port;
+
+  PORTD = toWrite;  
+  
 }
 
-
-
-void loop() {}
-
 void serialEvent(){
-  pinsPressed = buttonsPressed();
-  /*
-  Serial.println("Was r pressed?");
-  Serial.println((outputMap[4].idx & pinsPressed));
-  */
+  word btnsPressed = buttonsPressed();
+  if(btnsPressed != 0x0){
+    pinsPressed = btnsPressed;
+  }
+
+}
+
+word getKeyCode(char theChar){
+  for(int i = 0; i < BUTTONS; i++){
+      if(theChar == outputMap[i].key){
+          //Serial.println(outputMap[i].key);
+          return outputMap[i].idx;
+      }
+  }
+  return 0x0;
 }
 
 
 word buttonsPressed(){
-  word pinsPressed = 0xFFFF;
+  word pinsPressed = 0x0;
   while(Serial.available()){
     incomingByte = Serial.read();
     char theChar = (char)incomingByte;
-    bool valid = false;
-    for(int i = 0; i < BUTTONS+1; i++){
-        if(theChar == outputMap[i].key){
-            pinsPressed = pinsPressed ^ outputMap[i].idx;
-            valid = true;
-            break;
-        }
-    }
-
-    if(valid){
-        Serial.println("Received");
-        Serial.println(theChar);
-        /*
-        Serial.println("What is the code?");
-        Serial.println( ? "true" : "false");*/
-    }
-    else{
-        Serial.flush();
+    if(theChar != 0xA && theChar != 0xD && theChar != 0x0){
+      word keyCode = getKeyCode(theChar);
+      if(keyCode != 0x0){
+        //Serial.print("Code:");
+        //Serial.println(keyCode);
+        pinsPressed = pinsPressed | keyCode;          
+      }
     }
   }
   return pinsPressed;

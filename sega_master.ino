@@ -71,7 +71,7 @@ void sendState()
     // Only report controller state if it's changls ed
     if (currentState != lastState)
     {
-        Serial.print((currentState & SC_CTL_ON)    ? "" : "-");
+        Serial.print((currentState & SC_CTL_ON)    ? "" : ""); // 6-BTN controller or not
         Serial.print((currentState & SC_BTN_UP)    ? "U" : "");
         Serial.print((currentState & SC_BTN_DOWN)  ? "D" : "");
         Serial.print((currentState & SC_BTN_LEFT)  ? "L" : "");
@@ -85,7 +85,7 @@ void sendState()
         Serial.print((currentState & SC_BTN_Z)     ? "Z" : "");
         Serial.print((currentState & SC_BTN_MODE)  ? "M" : "");
 
-        Serial.print("\n");
+
         lastState = currentState;
     }
 }
