@@ -146,37 +146,9 @@ void initController(word pinCode){
 }
 
 void serialEvent(){
-  word btnsPressed = buttonsPressed();
-  if(btnsPressed != 0x0){
-    pinsPressed = btnsPressed;
-  }
+  char bits[4] = "0000";
+  Serial.readBytesUntil('\n', bits, 5);
+  char * pEnd;
 
-}
-
-word getKeyCode(char theChar){
-  for(int i = 0; i < BUTTONS; i++){
-      if(theChar == outputMap[i].key){
-          //Serial.println(outputMap[i].key);
-          return outputMap[i].idx;
-      }
-  }
-  return 0x0;
-}
-
-
-word buttonsPressed(){
-  word pinsPressed = 0x0;
-  while(Serial.available()){
-    incomingByte = Serial.read();
-    char theChar = (char)incomingByte;
-    if(theChar != 0xA && theChar != 0xD && theChar != 0x0){
-      word keyCode = getKeyCode(theChar);
-      if(keyCode != 0x0){
-        //Serial.print("Code:");
-        //Serial.println(keyCode);
-        pinsPressed = pinsPressed | keyCode;          
-      }
-    }
-  }
-  return pinsPressed;
+  pinsPressed = strtol(bits, &pEnd, 16);
 }
